@@ -1,0 +1,14 @@
+# Credenciais (token do ThingsBoard) - NUNCA versionar
+wokwi/secrets.h
+**/secrets.h
+
+# Arquivos temporários do Word / sistema
+~$*.docx
+*.tmp
+.DS_Store
+Thumbs.db
+
+# Builds locais (caso usem Arduino IDE / PlatformIO)
+build/
+.pio/
+.vscode/
