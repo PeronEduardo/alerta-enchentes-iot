@@ -216,6 +216,9 @@ void setup() {
   // TODO (segurança): trocar setInsecure() por setCACert(CA_THINGSBOARD)
   // setInsecure() já CRIPTOGRAFA os dados, mas não verifica a identidade do servidor.
   clienteSeguro.setInsecure();
+  clienteSeguro.setHandshakeTimeout(30);
+  mqtt.setSocketTimeout(30);
+  mqtt.setKeepAlive(60);
 
   mqtt.setServer(TB_SERVIDOR, TB_PORTA);
   mqtt.setCallback(aoReceberMensagem);
