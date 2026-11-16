@@ -19,6 +19,11 @@
 #include <PubSubClient.h>
 #include "DHTesp.h"
 #include "secrets.h"   // credenciais (NÃO vai para o GitHub) - veja secrets_exemplo.h
+#include "ca_thingsboard.h"   // certificado CA do servidor (público)
+// 1 = verifica a identidade do servidor (recomendado em hardware real)
+// 0 = apenas criptografa (usado no Wokwi: a verificação é lenta demais
+//     na simulação e o servidor encerra a conexão - erro mbedTLS -0x0050)
+#define VERIFICAR_CERTIFICADO 0
 
 // ---------------- Pinos ----------------
 const int PINO_TRIG     = 5;
@@ -158,6 +163,12 @@ void conectarMQTT() {
   } else {
     Serial.print("falhou, código = ");
     Serial.println(mqtt.state());
+
+    // Diagnóstico: mostra o motivo da falha na camada TLS
+    char erroTLS[120];
+    clienteSeguro.lastError(erroTLS, sizeof(erroTLS));
+    Serial.print("   Erro TLS: ");
+    Serial.println(erroTLS);
   }
 }
 
@@ -213,9 +224,13 @@ void setup() {
 
   dht.setup(PINO_DHT, DHTesp::DHT22);
 
-  // TODO (segurança): trocar setInsecure() por setCACert(CA_THINGSBOARD)
-  // setInsecure() já CRIPTOGRAFA os dados, mas não verifica a identidade do servidor.
-  clienteSeguro.setInsecure();
+  // Segurança: o ESP32 só conecta se o servidor apresentar um certificado
+  // assinado por uma das autoridades (CA) desta cadeia -> evita man-in-the-middle
+#if VERIFICAR_CERTIFICADO
+  clienteSeguro.setCACert(CA_THINGSBOARD);   // TLS + verificação do servidor
+#else
+  clienteSeguro.setInsecure();               // TLS sem verificação (simulação)
+#endif
   clienteSeguro.setHandshakeTimeout(30);
   mqtt.setSocketTimeout(30);
   mqtt.setKeepAlive(60);
