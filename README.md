@@ -3,32 +3,28 @@
 Projeto Final da disciplina **Internet das Coisas (IoT)**: Engenharia da Computação, UNIVAP
 Prof. Wagner dos Santos Clementino de Jesus. Entrega em **24/11/2026**.
 
-**Grupo:** Eduardo Peron · Diogo Gil de Oliveira · Gustavo Albano Nunes
+**Grupo:** Diogo Gil de Oliveira · Eduardo Peron · Gustavo Albano Nunes
 
 ---
 
 ## 📌 Sobre o projeto
 
-Sistema de monitoramento do nível de um rio para alertar moradores de bairros ribeirinhos.
-O projeto é **simulado** em duas camadas complementares:
-
-| Camada | Ferramenta | O que demonstra |
-|---|---|---|
-| **Estação de monitoramento do rio** | [Wokwi](https://wokwi.com) (ESP32) + [ThingsBoard Cloud](https://thingsboard.cloud) | Coleta, processamento, MQTT/TLS, nuvem, dashboard e atuação remota |
-| **Rede do bairro** | Cisco Packet Tracer | Home Gateways, gerenciamento de dispositivos, escalabilidade e segurança Wi-Fi (WPA2-AES) |
+Estação de monitoramento do nível de um rio para alertar moradores de bairros ribeirinhos.
+O sistema é **simulado** no [Wokwi](https://wokwi.com) (ESP32) e conectado a uma nuvem real, o
+[ThingsBoard Cloud](https://thingsboard.cloud).
 
 ```
- ┌──────────── WOKWI (nuvem real) ────────────┐
- │ ESP32 + HC-SR04 + DHT22 + LEDs + sirene     │
- │  → calcula nível → classifica risco         │
- │  → MQTT/TLS (8883) → ThingsBoard Cloud      │
- │  ← comando remoto "setSirene"               │
- └─────────────────────────────────────────────┘
- ┌──────── PACKET TRACER (rede do bairro) ─────┐
- │ Casas 1..N: Home Gateway + sensor + sirene  │
- │ Central da Defesa Civil: IoT Server + PC    │
- └─────────────────────────────────────────────┘
+ ┌───────── WOKWI (estação no rio) ─────────┐        ┌────────── THINGSBOARD CLOUD ──────────┐
+ │ HC-SR04 + DHT22 → ESP32                   │        │ Broker MQTT + armazenamento           │
+ │  → calcula o nível → classifica o risco   │ ─────► │  → Dashboard em tempo real            │
+ │  → LEDs + sirene (ação local, sem rede)   │ MQTT/  │  → Regra de alarme (EMERGÊNCIA)       │
+ │                                           │ TLS    │  → Alarmes e notificações             │
+ │  ◄── comando remoto "setSirene" (RPC) ────│ ◄───── │  → Switch "Sirene remota"             │
+ └───────────────────────────────────────────┘        └───────────────────────────────────────┘
 ```
+
+Ciclo da IoT: **Percepção** (sensores) → **Transmissão** (Wi-Fi + MQTT/TLS) →
+**Análise** (ESP32 na borda + regra de alarme na nuvem) → **Ação** (LEDs, sirene local e remota, alarmes).
 
 ## 📁 Estrutura
 
@@ -38,21 +34,22 @@ alerta-enchentes-iot/
 │   ├── sketch.ino
 │   ├── diagram.json
 │   ├── libraries.txt
-│   └── secrets_exemplo.h   # modelo de credenciais (copiar para secrets.h)
-├── packet-tracer/      # Arquivo .pkt da rede do bairro
-├── thingsboard/        # Configuração do dispositivo e dashboard (export JSON)
+│   ├── ca_thingsboard.h      # certificado CA do servidor (público)
+│   └── secrets_exemplo.h     # modelo de credenciais (copiar para secrets.h)
+├── thingsboard/        # Export JSON do dashboard
 └── docs/
     ├── arquitetura.md  # Requisitos, lógica e decisões de projeto
     ├── imagens/        # Prints para o relatório
     └── relatorio/      # Relatório no modelo INIC
 ```
 
-## ▶️ Como executar a simulação no Wokwi
+## ▶️ Como executar a simulação
 
 1. Crie um projeto **ESP32** em https://wokwi.com.
-2. Copie o conteúdo de `sketch.ino`, `diagram.json` e `libraries.txt` para os arquivos de mesmo nome.
-3. Crie um arquivo `secrets.h` (botão de novo arquivo) com o conteúdo de `secrets_exemplo.h` e cole o **Access Token** do ThingsBoard.
+2. Copie `sketch.ino`, `diagram.json`, `libraries.txt` e `ca_thingsboard.h` para arquivos de mesmo nome.
+3. Crie um arquivo `secrets.h` com o conteúdo de `secrets_exemplo.h` e cole o **Access Token** do dispositivo no ThingsBoard.
 4. Clique em ▶️ e **clique no sensor HC-SR04** para mudar a distância e simular a subida do rio.
+5. ⚠️ Mantenha a aba do Wokwi **visível**: o navegador congela abas em segundo plano e a simulação para.
 
 ## 🚦 Estados de risco
 
@@ -61,17 +58,24 @@ alerta-enchentes-iot/
 | < 200 cm | NORMAL | 🟢 | a cada 60 s |
 | 200 a 280 cm | ATENÇÃO | 🟡 | a cada 15 s |
 | 280 a 340 cm | ALERTA | 🔴 | a cada 5 s |
-| ≥ 340 cm | EMERGÊNCIA | 🔴 + sirene | a cada 2 s |
+| ≥ 340 cm | EMERGÊNCIA | 🔴 + sirene + alarme crítico na nuvem | a cada 2 s |
+
+## 🔒 Segurança
+
+- MQTT sobre **TLS** (porta 8883) e **token** individual por dispositivo.
+- O `secrets.h` (com o token) está no `.gitignore` e **nunca** vai para o GitHub.
+- Verificação do certificado do servidor configurável em `VERIFICAR_CERTIFICADO`
+  (1 = recomendado em hardware real; 0 = usado no Wokwi, onde a verificação é lenta demais
+  e o servidor encerra a conexão, erro mbedTLS -0x0050).
 
 ## ✅ Andamento
 
-- [x] Estrutura do repositório
-- [x] Firmware inicial: leitura, classificação, LEDs/sirene, MQTT/TLS, reconexão, RPC
-- [ ] Testar o firmware no Wokwi com o token real
-- [ ] Trocar `setInsecure()` pelo certificado CA do ThingsBoard
-- [ ] Dashboard no ThingsBoard (gráfico, medidor, estado, botão da sirene)
-- [ ] Regras de alarme no ThingsBoard
-- [ ] Topologia no Packet Tracer (3 casas + Defesa Civil)
-- [ ] Script Python no MCU-PT
-- [ ] Relatório INIC (3 a 6 páginas)
+- [x] Firmware: leitura, classificação, LEDs/sirene, MQTT/TLS, reconexão, RPC
+- [x] Teste no Wokwi com o ThingsBoard
+- [x] Certificado CA + chave de verificação TLS
+- [x] Dashboard (gráfico, tanque, estado, temperatura, umidade, sirene remota)
+- [x] Regra de alarme `EnchenteEmergencia` + tabela de alarmes
+- [x] Relatório INIC (rascunho v2)
+- [ ] Revisão do relatório pelo grupo
 - [ ] Vídeo de demonstração
+- [ ] Apresentação
