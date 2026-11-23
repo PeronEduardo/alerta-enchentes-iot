@@ -5,9 +5,9 @@
 | Etapa | No projeto |
 |---|---|
 | Percepção | HC-SR04 mede a distância até a água; DHT22 mede temperatura e umidade |
-| Análise | ESP32 converte distância → nível e classifica o risco (Edge Computing) |
-| Ação | LEDs e sirene local; sirene acionada remotamente pelo dashboard |
-| Transmissão | MQTT sobre TLS (porta 8883) até o ThingsBoard Cloud |
+| Transmissão | Wi-Fi + MQTT sobre TLS (porta 8883) até o ThingsBoard Cloud |
+| Análise | ESP32 converte distância → nível e classifica o risco (Edge Computing); regra de alarme `EnchenteEmergencia` na nuvem |
+| Ação | LEDs e sirene local; sirene acionada remotamente pelo dashboard; alarmes e notificações |
 
 ## Processamento dos dados
 
@@ -16,26 +16,35 @@
    - Exemplo: d = 150 cm → nível = 400 − 150 = **250 cm** → estado **ATENÇÃO**
 3. **Classificação:** NORMAL < 200 ≤ ATENÇÃO < 280 ≤ ALERTA < 340 ≤ EMERGÊNCIA
 
+## Regra de alarme (ThingsBoard)
+
+| Item | Configuração |
+|---|---|
+| Tipo | `EnchenteEmergencia`, severidade **Critical** |
+| Argumento | `estado` (último valor de telemetria) |
+| Disparo | `estado` igual a `EMERGENCIA` |
+| Encerramento | `estado` diferente de `EMERGENCIA` |
+
 ## Requisitos Funcionais
 
 | RF | Descrição | Implementação |
 |---|---|---|
-| RF01 | Coleta de dados | HC-SR04 + DHT22 (Wokwi); sensores de água (Packet Tracer) |
+| RF01 | Coleta de dados | HC-SR04 (nível) + DHT22 (temperatura e umidade) |
 | RF02 | Processamento | Cálculo de nível, classificação de risco, JSON |
-| RF03 | Conectividade Wi-Fi | ESP32 (Wokwi); Home Gateways (Packet Tracer) |
-| RF04 | Comunicação com a nuvem | ThingsBoard Cloud via MQTT |
-| RF05 | Visualização | Dashboard ThingsBoard + painel do IoT Server (Packet Tracer) |
+| RF03 | Conectividade Wi-Fi | ESP32 conectado à rede Wi-Fi |
+| RF04 | Comunicação com a nuvem | ThingsBoard Cloud via MQTT sobre TLS |
+| RF05 | Visualização | Dashboard ThingsBoard em tempo real, com tabela de alarmes |
 | RF06 | Atuação remota | RPC `setSirene` aciona a sirene do ESP32 |
 
 ## Requisitos Não Funcionais
 
 | RNF | Descrição | Implementação |
 |---|---|---|
-| RNF01 | Escalabilidade | Novo dispositivo no ThingsBoard / novo gateway no Packet Tracer sem alterar o restante |
+| RNF01 | Escalabilidade | Nova estação = novo dispositivo no ThingsBoard, sem alterar o restante |
 | RNF02 | Confiabilidade | Reconexão automática ao Wi-Fi e ao MQTT; ação local funciona sem internet |
-| RNF03 | Segurança | TLS na porta 8883; token por dispositivo; WPA2-AES no Packet Tracer; token fora do GitHub |
-| RNF04 | Usabilidade | Estados por cor; um único painel |
-| RNF05 | Eficiência energética | Intervalo de envio adaptativo ao risco |
+| RNF03 | Segurança | TLS na porta 8883; token por dispositivo; token fora do GitHub; verificação do certificado configurável (`VERIFICAR_CERTIFICADO`) |
+| RNF04 | Usabilidade | Estados por cor e por nome; um único painel |
+| RNF05 | Eficiência energética | Intervalo de envio adaptativo ao risco (60 s a 2 s) |
 
 ## Protocolo de comunicação (ThingsBoard)
 
